@@ -1,0 +1,4 @@
+interface:
+  display_name: "Agent 微信公众号阅读"
+  short_description: "自动识别单个或批量公众号链接，读取正文并生成结构化结果"
+  default_prompt: "Use $wechat-article-reader to read these WeChat article links and summarize each one."
