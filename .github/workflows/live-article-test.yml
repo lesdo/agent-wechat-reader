@@ -1,0 +1,73 @@
+name: Live WeChat Article Test
+
+on:
+  workflow_dispatch:
+    inputs:
+      article_url:
+        description: Public WeChat article URL to test
+        required: true
+        type: string
+        default: "https://mp.weixin.qq.com/s/9WvkTlj1nUggg0HBsizRpQ"
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/live-article-test.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: wechat-live-article-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  read-public-article:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+
+      - name: Compile reader
+        run: python -m py_compile skills/wechat-article-reader/scripts/read_wechat_article.py
+
+      - name: Run deterministic self-test
+        run: python skills/wechat-article-reader/scripts/read_wechat_article.py --self-test
+
+      - name: Fetch public WeChat article
+        id: fetch
+        continue-on-error: true
+        env:
+          ARTICLE_URL: ${{ inputs.article_url || 'https://mp.weixin.qq.com/s/9WvkTlj1nUggg0HBsizRpQ' }}
+          OUTPUT_DIR: ${{ runner.temp }}/wechat-article-test
+        run: |
+          mkdir -p "$OUTPUT_DIR"
+          python skills/wechat-article-reader/scripts/read_wechat_article.py "$ARTICLE_URL" --output-dir "$OUTPUT_DIR"
+
+      - name: Upload article and diagnostic metadata
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wechat-article-test-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/wechat-article-test/article.md
+            ${{ runner.temp }}/wechat-article-test/article.json
+            ${{ runner.temp }}/wechat-article-test/trace.json
+          if-no-files-found: warn
+          retention-days: 3
+
+      - name: Fail the run if live article retrieval failed
+        if: always()
+        env:
+          FETCH_OUTCOME: ${{ steps.fetch.outcome }}
+        run: |
+          if [ "$FETCH_OUTCOME" != "success" ]; then
+            echo "Live article retrieval failed. Inspect the uploaded article.json and trace.json artifact."
+            exit 1
+          fi
