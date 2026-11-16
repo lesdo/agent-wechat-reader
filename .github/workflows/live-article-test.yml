@@ -8,6 +8,11 @@ on:
         required: true
         type: string
         default: "https://mp.weixin.qq.com/s/9WvkTlj1nUggg0HBsizRpQ"
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/live-article-test.yml"
 
 permissions:
   contents: read
@@ -39,7 +44,7 @@ jobs:
         id: fetch
         continue-on-error: true
         env:
-          ARTICLE_URL: ${{ inputs.article_url }}
+          ARTICLE_URL: ${{ inputs.article_url || 'https://mp.weixin.qq.com/s/9WvkTlj1nUggg0HBsizRpQ' }}
           OUTPUT_DIR: ${{ runner.temp }}/wechat-article-test
         run: |
           mkdir -p "$OUTPUT_DIR"
